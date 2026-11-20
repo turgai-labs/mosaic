@@ -71,8 +71,8 @@ var today: Widget {
 - **A row's closures close over the row's own values,** so a button knows which item it's in.
 - **Closures stay with the host.** Only identities travel. A press names a piece; the host finds
   it in the current widget and runs its closure, as a message to itself.
-- **After every change the host computes the widget again,** compares it with the last one by
-  identity, and sends only what differs.
+- **After every change the host computes the widget again,** and sends a patch against the last
+  one.
 - The host's state changes only through its own code — the widget never writes it.
 
 ## Fields
@@ -94,18 +94,12 @@ Each change says whether it's still being made or finished:
 - **The host decides what a change means:** ignore it, keep it, or react to it as it's typed.
 - **A form is fields the host keeps current,** and a button that reads them:
   `.button("Start") { self.start(firstDay: self.day, length: self.length) }`.
-- **Edits are throttled.** A renderer sends `editing` at most every few hundred milliseconds, and
-  once more when the field loses focus — never every keystroke.
-- **A press comes after the edits before it.** A renderer sends a field's last change before any
-  press that follows, in order, so a button never reads a value older than what's on screen.
-- **The echo doesn't fight the typing.** While a field is being edited it keeps its own value and
-  ignores what the host sends for it. After `submitted`, or once it loses focus, it takes the
-  host's value again — which is how a host clears a field.
 - **A host that keeps its state durably** should keep `editing` changes only when it needs them,
   so typing doesn't become a stream of writes.
 
 `toggle`, `choice`, `dateField` and `slider` change in one step, so their changes are always
-finished.
+finished. How changes travel — throttled, in order, never over what's being typed — is under
+Events.
 
 ## Composites
 
@@ -113,19 +107,56 @@ A composite is a Swift function or value that builds a widget from core pieces �
 icon, a day in a calendar. It's computed on the host, so renderers never see it, and libraries of
 composites grow without touching any renderer.
 
-## Updates
+## Identity
 
-A renderer changes only what changed, by identity, as SwiftUI and Phoenix LiveView do.
+Rules from SwiftUI. A piece's identity is how a renderer knows it's the same piece from one widget
+to the next.
 
-- **Every piece has an identity:** its `id` when it has one, or else its place — its parent's
-  identity and its index. Every row of a `list` has an `id`, unique among its rows.
-- **The new widget is matched to the old by identity:** the same identity is updated in place, a
-  new one is made, a missing one is removed, a row whose place changed is moved.
-- **What's being typed isn't overwritten.** A field being edited keeps its own value until it's
-  submitted or loses focus.
+- **Explicit:** its `id`, when it has one.
+- **Structural:** otherwise, its kind and its place — the parent's identity, its index, and
+  whether it's a `text`, a `button`, a `row`. A place whose kind changes holds a new piece.
+- **What a piece holds lives as long as its identity:** a field's typed text and focus, a list's
+  scroll position. When the identity ends, they end. To start a piece fresh, give it a new `id`.
+- **List rows have explicit ids, stable and unique:** a row's own key, never its index or a random
+  value. An index would tie a row's held state to a position; a random id would recreate every
+  row on every change. Two rows with one id are refused.
+- A host that wants a piece to stay the same across two states keeps the same kind at the same
+  place, or gives both the same `id`, and changes only its values.
 
-SwiftUI and Compose do this themselves, given stable ids. On the web the renderer does it with a
-keyed morph of the DOM.
+## Patches
+
+The first message is the whole widget. Every one after it is a patch against the widget the
+renderer has: only what changed, by identity. The list rules are LiveView's.
+
+- **A piece whose values changed** is sent with just those values.
+- **A piece whose kind changed, or a new piece,** is sent whole.
+- **A piece that's gone** is named, and removed.
+- **An unchanged piece** isn't sent.
+- **A list** is sent as its count and the rows that differ, by position:
+  - an unchanged row in the same position — nothing;
+  - an unchanged row that moved — the position it came from;
+  - a changed row — its patch, with the position it came from if it moved;
+  - a new row — whole.
+
+A renderer applies a patch to the widget it has, then updates its native views by identity.
+
+## Events
+
+- **Every event has a number,** counted by the renderer. Every patch says the last event the host
+  had handled when it was made, and the host answers every event with a patch — an empty one when
+  nothing changed.
+- **A piece waits for its event.** After a press, the button ignores further presses until a
+  patch acknowledges that event — a double tap isn't two actions. A renderer may show it as busy.
+- **A field being edited is never overwritten.** It keeps its own value until it's submitted or
+  loses focus, whatever patches arrive; then it takes the host's value.
+- **Edits are throttled,** at most every few hundred milliseconds, and sent once more on losing
+  focus. A press is sent after the edits before it, in order.
+- **An event for a piece that's gone is dropped** by the host: the piece it named no longer exists.
+- **After a reconnect** the host sends the whole widget again, and the renderer sends the last
+  edit of any field still being edited, so typed text isn't lost.
+
+SwiftUI and Compose redraw by identity themselves, given stable ids. On the web the renderer does
+it with a keyed morph of the DOM.
 
 ## Style
 
@@ -137,9 +168,9 @@ Only roles, never pixels or colors: `title`, `heading`, `body`, `caption` for te
 
 | Message | Direction | Carries |
 |---|---|---|
-| `widget` | host → renderer | The core pieces, flattened, each with its identity — whole the first time |
-| `patch` | host → renderer | What changed since, by identity |
-| `event` | renderer → host | A piece's identity and what happened: pressed, or changed — editing or finished — with its value |
+| `widget` | host → renderer | The whole widget, flattened, each piece with its identity |
+| `patch` | host → renderer | What changed, by identity, and the last event handled |
+| `event` | renderer → host | Its number, a piece's identity, and what happened: pressed, or changed — editing or finished — with its value |
 
 Hosts build nested values; the wire form is flat.
 
