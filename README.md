@@ -123,7 +123,7 @@ What a host writes is a nested Swift value; the flat wire form is Mosaic's own b
 ## Not goals
 
 - Drawing pixels, custom graphics, animation choreography.
-- Logic in the renderer. A renderer shows, binds and sends — it never decides.
+- Logic in the renderer. A renderer shows and reports what happened — it never decides.
 - Matching any existing format. Mosaic's pieces are its own.
 
 ## Open questions
