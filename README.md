@@ -38,11 +38,11 @@ The only things a renderer implements. The list grows rarely, and only by decisi
 | `text` | Words in a style role |
 | `image` | A picture from a URL, with what it shows in words |
 | `button` | Something to press, and what pressing it does |
-| `textField` | Words to type, and what submitting them does |
-| `toggle` | On or off, and what switching it does |
-| `choice` | One or several of given options |
-| `dateField` | A date, a time, or both |
-| `slider` | A number in a range |
+| `textField` | Words to type, and what happens as they change |
+| `toggle` | On or off, and what happens as it changes |
+| `choice` | One or several of given options, and what happens as they change |
+| `dateField` | A date, a time, or both, and what happens as it changes |
+| `slider` | A number in a range, and what happens as it changes |
 | `list` | Rows, each with an `id` |
 | `divider` | A line between pieces |
 
@@ -75,6 +75,38 @@ var today: Widget {
   identity, and sends only what differs.
 - The host's state changes only through its own code — the widget never writes it.
 
+## Fields
+
+A field shows its own value at once, as a native field does, and tells the host as it changes.
+Each change says whether it's still being made or finished:
+
+```swift
+.textField("What do you feel?", text: note) { change in
+    switch change {
+    case .editing(let text): self.note = text
+    case .submitted(let text):
+        self.logPain(text)
+        self.note = ""
+    }
+}
+```
+
+- **The host decides what a change means:** ignore it, keep it, or react to it as it's typed.
+- **A form is fields the host keeps current,** and a button that reads them:
+  `.button("Start") { self.start(firstDay: self.day, length: self.length) }`.
+- **Edits are throttled.** A renderer sends `editing` at most every few hundred milliseconds, and
+  once more when the field loses focus — never every keystroke.
+- **A press comes after the edits before it.** A renderer sends a field's last change before any
+  press that follows, in order, so a button never reads a value older than what's on screen.
+- **The echo doesn't fight the typing.** While a field is being edited it keeps its own value and
+  ignores what the host sends for it. After `submitted`, or once it loses focus, it takes the
+  host's value again — which is how a host clears a field.
+- **A host that keeps its state durably** should keep `editing` changes only when it needs them,
+  so typing doesn't become a stream of writes.
+
+`toggle`, `choice`, `dateField` and `slider` change in one step, so their changes are always
+finished.
+
 ## Composites
 
 A composite is a Swift function or value that builds a widget from core pieces — a row with an
@@ -89,8 +121,8 @@ A renderer changes only what changed, by identity, as SwiftUI and Phoenix LiveVi
   identity and its index. Every row of a `list` has an `id`, unique among its rows.
 - **The new widget is matched to the old by identity:** the same identity is updated in place, a
   new one is made, a missing one is removed, a row whose place changed is moved.
-- **What's being typed isn't overwritten.** An input with focus keeps its text until it loses
-  focus or submits.
+- **What's being typed isn't overwritten.** A field being edited keeps its own value until it's
+  submitted or loses focus.
 
 SwiftUI and Compose do this themselves, given stable ids. On the web the renderer does it with a
 keyed morph of the DOM.
@@ -107,7 +139,7 @@ Only roles, never pixels or colors: `title`, `heading`, `body`, `caption` for te
 |---|---|---|
 | `widget` | host → renderer | The core pieces, flattened, each with its identity — whole the first time |
 | `patch` | host → renderer | What changed since, by identity |
-| `event` | renderer → host | A piece's identity and what happened: pressed, switched, submitted, with its value |
+| `event` | renderer → host | A piece's identity and what happened: pressed, or changed — editing or finished — with its value |
 
 What a host writes is a nested Swift value; the flat wire form is Mosaic's own business.
 
@@ -133,6 +165,4 @@ What a host writes is a nested Swift value; the flat wire form is Mosaic's own b
   recursive types are a problem today.
 - **Images:** URLs only, or also data the host holds.
 - **More than one screen:** whether a widget can lead to another, or a host shows one at a time.
-- **Forms:** one button submitting several fields at once — a date and a number — needs a typed
-  way to read the other fields' values.
 - **The shell:** result builders in the Swift that runs host code, before the SwiftUI-like layer.
