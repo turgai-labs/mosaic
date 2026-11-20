@@ -55,6 +55,24 @@ renderers never see it. Libraries of composites can grow freely — renderers do
 - Inputs edit locally. The host's state changes only by an action — the host decides, the widget
   never writes the state itself.
 
+## Updates
+
+A renderer changes only what changed, by identity, as SwiftUI and Phoenix LiveView do.
+
+- **Values change** — the common case. A renderer knows which nodes each path is bound to, and a
+  `values` patch sets exactly those. The layout, focus and scroll stay untouched.
+- **A collection changes.** Each item of a `List` has a key, `id` unless said otherwise. A renderer
+  keeps one node per key: new keys are inserted, gone ones removed, moved ones moved. Unchanged
+  items keep their nodes, and any input in them keeps its text.
+- **The layout changes.** Every piece has an identity: its `id` when it has one, or else its place —
+  its parent's identity and its index. The new layout is matched to the old by identity: the same
+  identity is updated in place, a new one is made, a missing one is removed.
+- **What's being typed isn't overwritten.** An input with focus ignores incoming values until it
+  loses focus or its action is sent.
+
+SwiftUI and Compose do this themselves, given observable state and stable ids. On the web the
+renderer does it: bound nodes and list keys by hand, and a keyed morph of the DOM for a new layout.
+
 ## Style
 
 Only roles, never pixels or colors: `title`, `heading`, `body`, `caption` for text; `normal`,
