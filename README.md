@@ -14,11 +14,13 @@ Server-driven UI widgets for Swift.
 
 ## Status
 
-- **Built:** `Widget` (`row`, `column`, `text`, `button`, `image`), `Widget.checked()`, and
-  `MosaicHTML` — server-rendered HTML, updated over server-sent events with a keyed DOM morph
-  (idiomorph). Buttons are identified by their label.
-- **Designed, not built:** closure handlers, fields, `list`, the patch protocol, the SwiftUI
-  renderer.
+- **Built:** the pieces as `Identifiable` structs — `Column`, `Row`, `Text`, `Image`, `Button`,
+  `TextField`, `Toggle` — with `Widget` as their sum; every piece has an id, its own among its
+  siblings, and a `PiecePath` from the top; `Widget.checked()`; `Event`. `MosaicHTML` renders a
+  widget as HTML, live over server-sent events with a keyed DOM morph; a press names its button by
+  path.
+- **Not built yet:** events from text fields and toggles, closure handlers, `list` and the other
+  inputs, the session rules, the SwiftUI renderer.
 
 ## Two layers
 

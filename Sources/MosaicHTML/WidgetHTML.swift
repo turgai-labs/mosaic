@@ -4,10 +4,9 @@ public import Mosaic
 
 /// The whole document a browser opens: the widget, kept live by the host's stream at `live`, which
 /// sends each widget shown after it as an event named ``liveEvent``. Each is morphed into the one
-/// there, and animated as SwiftUI animates a change: a thing with an `id` is the same thing on both,
-/// and slides from where it was to where it is, by the edges its box lines it up by, its old look
-/// fading out where it was if it changed; anything else that's new or changed fades in, and what's
-/// gone fades out.
+/// there, and animated: a piece with the same path is the same piece in both, and slides from where
+/// it was to where it is, by the edges its box lines it up by, its old look fading out where it was
+/// if it changed; a new piece fades in, and what's gone fades out.
 public struct WidgetDocument: HTMLDocument {
     /// The name of the events the host's stream sends a widget's HTML in.
     public static let liveEvent = "widget"
@@ -17,14 +16,14 @@ public struct WidgetDocument: HTMLDocument {
     public let title: String
     /// Where the host's stream of widgets is.
     let live: String
-    /// Where a press of a button, by its label, on the widget of a version, is posted.
-    let press: @Sendable (String, Int) -> String
+    /// Where a press of a button, by its path, on the widget of a version, is posted.
+    let press: @Sendable (PiecePath, Int) -> String
 
     public var lang: String { "en" }
 
     public init(
         _ widget: Widget, version: Int, title: String, live: String,
-        press: @escaping @Sendable (_ label: String, _ version: Int) -> String
+        press: @escaping @Sendable (_ path: PiecePath, _ version: Int) -> String
     ) {
         self.widget = widget
         self.version = version
@@ -164,85 +163,98 @@ public struct WidgetDocument: HTMLDocument {
         img.fit { object-fit: contain; } img.fill { object-fit: cover; }
         button.prominent { background: var(--accent); border-color: var(--accent); color: white; font-weight: 600; }
         button.destructive { color: var(--negative); border-color: var(--negative); }
+        input.field { font: inherit; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; }
+        label.toggle { display: flex; gap: 8px; align-items: center; }
         """
 }
 
-/// One widget, as HTML: a row or a column as a box of its pieces, a button posting its label with
-/// the version it was shown on, so a press on a widget since replaced can be refused. Each piece's
-/// HTML `id` is what it is in the widget, which the morph keeps it by; only an `id` given makes it
-/// slide.
+/// One widget, as HTML: a row or a column as a box of its pieces, a button posting its press by its
+/// path with the version it was shown on, so a press on a widget since replaced can be refused. Each
+/// piece's HTML `id` is its path, which the morph keeps it by, and every piece slides from where it
+/// was to where it is.
 public struct WidgetView: HTML, Sendable {
     let widget: Widget
     let version: Int
-    let press: @Sendable (String, Int) -> String
-    /// Where it is on the page: its index in each box it's in, outermost first.
-    var place: [Int] = []
-    /// How the box it's in lines it up: the page is a column, centred.
+    let press: @Sendable (PiecePath, Int) -> String
+    /// Where it is: the ids from the widget's top down to it.
+    let path: PiecePath
+    /// How the box it's in lines it up: the top is a column, centred.
     var anchor = Anchor(horizontal: .center, vertical: .top)
 
     public init(
-        _ widget: Widget, version: Int, press: @escaping @Sendable (_ label: String, _ version: Int) -> String
+        _ widget: Widget, version: Int, press: @escaping @Sendable (_ path: PiecePath, _ version: Int) -> String
     ) {
         self.widget = widget
         self.version = version
         self.press = press
+        self.path = PiecePath([widget.id])
     }
 
     private init(
-        _ widget: Widget, version: Int, press: @escaping @Sendable (String, Int) -> String, place: [Int],
+        _ widget: Widget, version: Int, press: @escaping @Sendable (PiecePath, Int) -> String, path: PiecePath,
         anchor: Anchor
     ) {
-        self.init(widget, version: version, press: press)
-        self.place = place
+        self.widget = widget
+        self.version = version
+        self.press = press
+        self.path = path
         self.anchor = anchor
     }
 
     public var body: some HTML {
         switch widget {
-        case .row(let id, let items, let alignment, let spacing):
+        case .row(let row):
             div(
-                .id(Identity.of(id: id, place: place).name), .class("row \(alignment.rawValue)"),
-                .style("gap: \(Self.points(spacing))")
+                .id(Self.name(path)), .class("row \(row.alignment.rawValue)"),
+                .style("gap: \(Self.points(row.spacing))")
             ) {
-                children(items, Anchor(horizontal: .leading, vertical: alignment))
-            }.attributes(contentsOf: named(id))
-        case .column(let id, let items, let alignment, let spacing):
+                children(row.children, Anchor(horizontal: .leading, vertical: row.alignment))
+            }.attributes(contentsOf: anchored())
+        case .column(let column):
             div(
-                .id(Identity.of(id: id, place: place).name), .class("column \(alignment.rawValue)"),
-                .style("gap: \(Self.points(spacing))")
+                .id(Self.name(path)), .class("column \(column.alignment.rawValue)"),
+                .style("gap: \(Self.points(column.spacing))")
             ) {
-                children(items, Anchor(horizontal: alignment, vertical: .top))
-            }.attributes(contentsOf: named(id))
-        case .text(let id, let text, let style, let color):
-            p(.id(Identity.of(id: id, place: place).name), .class("\(style.rawValue) \(color.rawValue)")) { text }
-                .attributes(contentsOf: named(id))
-        case .image(let id, let url, let description, let aspectRatio, let fit, let width):
+                children(column.children, Anchor(horizontal: column.alignment, vertical: .top))
+            }.attributes(contentsOf: anchored())
+        case .text(let text):
+            p(.id(Self.name(path)), .class("\(text.style.rawValue) \(text.color.rawValue)")) { text.words }
+                .attributes(contentsOf: anchored())
+        case .image(let image):
             img(
-                .id(Identity.of(id: id, place: place).name), .src(url.absoluteString), .alt(description),
+                .id(Self.name(path)), .src(image.url.absoluteString), .alt(image.description),
                 .custom(name: "loading", value: "lazy"),
-                .class("image \(fit.rawValue)"), .style(Self.imageStyle(aspectRatio, width))
-            ).attributes(contentsOf: named(id))
-        case .button(let id, let label, let kind):
-            button(
-                .id((id.map(Identity.id) ?? .label(label)).name), .class(kind.rawValue),
-                .data("press", value: press(label, version))
-            ) { label }.attributes(contentsOf: named(id))
+                .class("image \(image.fit.rawValue)"), .style(Self.imageStyle(image.aspectRatio, image.width))
+            ).attributes(contentsOf: anchored())
+        case .button(let button):
+            Elementary.button(
+                .id(Self.name(path)), .class(button.kind.rawValue), .data("press", value: press(path, version))
+            ) { button.label }.attributes(contentsOf: anchored())
+        case .textField(let field):
+            input(
+                .id(Self.name(path)), .type(.text), .value(field.text), .placeholder(field.placeholder),
+                .class("field")
+            ).attributes(contentsOf: anchored())
+        case .toggle(let toggle):
+            label(.id(Self.name(path)), .class("toggle")) {
+                input(.type(.checkbox)).attributes(.checked, when: toggle.isOn)
+                toggle.label
+            }.attributes(contentsOf: anchored())
         }
     }
 
     private func children(_ items: [Widget], _ anchor: Anchor) -> some HTML {
-        ForEach(Array(items.enumerated())) { index, item in
-            WidgetView(item, version: version, press: press, place: place + [index], anchor: anchor)
+        ForEach(items) { item in
+            WidgetView(item, version: version, press: press, path: path.appending(item.id), anchor: anchor)
         }
     }
 
-    /// When it has an `id`, the edges its box lines it up by: it's the same thing on the page
-    /// before and after, and slides by them. Without one, it fades.
-    private func named<Tag: HTMLTrait.Attributes.Global>(_ id: String?) -> [HTMLAttribute<Tag>] {
-        id.map { _ in [.data("anchor", value: anchor.classes)] } ?? []
+    /// The edges its box lines it up by, which it slides by from where it was to where it is.
+    private func anchored<Tag: HTMLTrait.Attributes.Global>() -> [HTMLAttribute<Tag>] {
+        [.data("anchor", value: anchor.classes)]
     }
 
-    /// How a box lines up what's in it, across and down: a column lines its items up by its
+    /// How a box lines up what's in it, across and down: a column lines its pieces up by its
     /// alignment and stacks them from the top; a row lines them up from the leading edge, and
     /// down by its alignment.
     struct Anchor: Equatable, Sendable {
@@ -252,30 +264,13 @@ public struct WidgetView: HTML, Sendable {
         var classes: String { "\(horizontal.rawValue) \(vertical.rawValue)" }
     }
 
-    /// What a thing on the page is, from one page to the next, as the morph keeps it: its id, a
-    /// button's label, or its place.
-    enum Identity {
-        case id(String)
-        case label(String)
-        case place([Int])
-
-        static func of(id: String?, place: [Int]) -> Identity { id.map(Identity.id) ?? .place(place) }
-
-        /// As CSS names it: each kind apart, every character outside a name's own written in hex.
-        var name: String {
-            switch self {
-            case .id(let id): "id-" + Self.escaped(id)
-            case .label(let label): "label-" + Self.escaped(label)
-            case .place(let place): "item" + place.map { "-\($0)" }.joined()
-            }
-        }
-
-        private static func escaped(_ text: String) -> String {
-            text.unicodeScalars.map { scalar in
+    /// A path as an HTML id: every character outside a name's own written in hex.
+    static func name(_ path: PiecePath) -> String {
+        "p-"
+            + path.description.unicodeScalars.map { scalar in
                 CharacterSet.alphanumerics.contains(scalar) && scalar.isASCII
                     ? String(scalar) : "_\(String(scalar.value, radix: 16))_"
             }.joined()
-        }
     }
 
     /// A picture's shape and width, as CSS has them.
@@ -291,7 +286,7 @@ public struct WidgetView: HTML, Sendable {
         return (ratio.map { "aspect-ratio: \($0); " } ?? "") + (width.map { "width: \(points($0)); " } ?? "")
     }
 
-    /// Points as the web writes them: a SwiftUI point is a CSS pixel.
+    /// Points as the web writes them: a point is a CSS pixel.
     static func points(_ value: Double) -> String {
         value.rounded() == value ? "\(Int(value))px" : "\(value)px"
     }
