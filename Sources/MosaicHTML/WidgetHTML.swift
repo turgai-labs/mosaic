@@ -206,30 +206,30 @@ public struct WidgetView: HTML, Sendable {
         case .row(let row):
             div(
                 .id(Self.name(path)), .class("row \(row.alignment.rawValue)"),
-                .style("gap: \(Self.points(row.spacing))")
+                .style("gap: \(Self.points(row.spacing.rawValue))")
             ) {
                 children(row.children, Anchor(horizontal: .leading, vertical: row.alignment))
             }.attributes(contentsOf: anchored())
         case .column(let column):
             div(
                 .id(Self.name(path)), .class("column \(column.alignment.rawValue)"),
-                .style("gap: \(Self.points(column.spacing))")
+                .style("gap: \(Self.points(column.spacing.rawValue))")
             ) {
                 children(column.children, Anchor(horizontal: column.alignment, vertical: .top))
             }.attributes(contentsOf: anchored())
         case .text(let text):
-            p(.id(Self.name(path)), .class("\(text.style.rawValue) \(text.color.rawValue)")) { text.words }
+            p(.id(Self.name(path)), .class("\(text.style.rawValue) \(text.color.rawValue)")) { text.words.rawValue }
                 .attributes(contentsOf: anchored())
         case .image(let image):
             img(
-                .id(Self.name(path)), .src(image.url.absoluteString), .alt(image.description),
+                .id(Self.name(path)), .src(image.address.url.absoluteString), .alt(image.description.rawValue),
                 .custom(name: "loading", value: "lazy"),
-                .class("image \(image.fit.rawValue)"), .style(Self.imageStyle(image.aspectRatio, image.width))
+                .class("image \(image.fit.rawValue)"), .style(Self.imageStyle(image.aspectRatio, image.width?.rawValue))
             ).attributes(contentsOf: anchored())
         case .button(let button):
             Elementary.button(
                 .id(Self.name(path)), .class(button.kind.rawValue), .data("press", value: press(path, version))
-            ) { button.label }.attributes(contentsOf: anchored())
+            ) { button.label.rawValue }.attributes(contentsOf: anchored())
         case .textField(let field):
             input(
                 .id(Self.name(path)), .type(.text), .value(field.text), .placeholder(field.placeholder),
@@ -238,7 +238,7 @@ public struct WidgetView: HTML, Sendable {
         case .toggle(let toggle):
             label(.id(Self.name(path)), .class("toggle")) {
                 input(.type(.checkbox)).attributes(.checked, when: toggle.isOn)
-                toggle.label
+                toggle.label.rawValue
             }.attributes(contentsOf: anchored())
         }
     }

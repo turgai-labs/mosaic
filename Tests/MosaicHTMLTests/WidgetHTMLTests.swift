@@ -11,27 +11,26 @@ struct WidgetHTMLTests {
     let press: @Sendable (PiecePath, Int) -> String = { path, version in "press?path=\(path)&page=\(version)" }
 
     @Test("each piece is named by its path, slides by the edges its box lines it up by, and a press names its path")
-    func piecesAreNamedByTheirPaths() {
+    func piecesAreNamedByTheirPaths() throws {
         let widget = Widget.column(
-            Column(
-                id: "top",
+            try Column(
+                "top",
                 [
-                    .text(Text(id: "now playing", "Song", style: .title)),
+                    .text(try Text("now playing", "Song", style: .title)),
                     .image(
-                        Image(
-                            id: "cover", url: URL(string: "https://example.com/cover.jpg")!,
-                            description: "The album's cover",
+                        try Image(
+                            "cover", address: "https://example.com/cover.jpg", description: "The album's cover",
                             aspectRatio: .square, fit: .fill, width: 120)),
                     .row(
-                        Row(
-                            id: "controls",
+                        try Row(
+                            "controls",
                             [
-                                .button(Button(id: "play", "Play", kind: .prominent)),
-                                .button(Button(id: "next", "Next")),
+                                .button(try Button("play", "Play", kind: .prominent)),
+                                .button(try Button("next", "Next")),
                             ],
                             alignment: .top, spacing: 6)),
-                    .textField(TextField(id: "note", text: "Loud", placeholder: "A note")),
-                    .toggle(Toggle(id: "repeat", "Repeat", isOn: true)),
+                    .textField(try TextField("note", text: "Loud", placeholder: "A note")),
+                    .toggle(try Toggle("repeat", "Repeat", isOn: true)),
                 ]))
         let html = WidgetDocument(widget, version: 1, title: "Website", live: "live", press: press).render()
         #expect(html.contains("Idiomorph.morph(page, html"))
@@ -51,11 +50,11 @@ struct WidgetHTMLTests {
         #expect(html.contains("checked"), "\(html)")
         let lined = WidgetView(
             .column(
-                Column(
-                    id: "top",
+                try Column(
+                    "top",
                     [
-                        .column(Column(id: "left", [.text(Text(id: "words", "Left"))], alignment: .leading)),
-                        .row(Row(id: "low", [.button(Button(id: "go", "Go"))], alignment: .bottom)),
+                        .column(try Column("left", [.text(try Text("words", "Left"))], alignment: .leading)),
+                        .row(try Row("low", [.button(try Button("go", "Go"))], alignment: .bottom)),
                     ])), version: 1, press: press
         ).render()
         #expect(

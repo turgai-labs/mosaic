@@ -2,63 +2,77 @@ import Foundation
 import Mosaic
 import Testing
 
-/// A widget is whole before it's shown: everything in it says something, and each id is its own
-/// among its siblings.
-@Suite("A widget, checked")
+/// A widget that exists can be shown: what's wrong with a piece stops it being made, here or decoded.
+@Suite("A widget, made")
 struct WidgetTests {
-    @Test(
-        "a picture is from the web, and says what it shows",
-        arguments: [
-            ("file:///Users/me/secret.png", "a cover", WidgetProblem.notAWebAddress("file:///Users/me/secret.png")),
-            ("cover.jpg", "a cover", .notAWebAddress("cover.jpg")),
-            ("https://example.com/cover.jpg", " ", .noDescription),
-        ])
-    func picturesAreFromTheWeb(url: String, description: String, problem: WidgetProblem) {
-        #expect(throws: problem) {
-            try Widget.column(
-                Column(id: "top", [.image(Image(id: "cover", url: URL(string: url)!, description: description))])
-            )
-            .checked()
-        }
+    @Test("a piece that says nothing, or is named by nothing, isn't made; what's made is trimmed")
+    func piecesSaySomething() throws {
+        #expect(try Text("  hi ", "  Hi ").words.rawValue == "Hi")
+        #expect(try Text("  hi ", "Hi").id.rawValue == "hi")
+        #expect(throws: WidgetProblem.noText) { try Text("hi", " ") }
+        #expect(throws: WidgetProblem.noLabel) { try Button("go", "") }
+        #expect(throws: WidgetProblem.noLabel) { try Toggle("on", "\n", isOn: true) }
+        #expect(throws: WidgetProblem.noID) { try Text(" ", "Hi") }
     }
 
-    @Test("ids, words and labels are trimmed, and an id is its own among its siblings only")
+    @Test(
+        "a picture is from the web, says what it shows, and is wide if it says how wide",
+        arguments: [
+            (
+                "file:///Users/me/secret.png", "a cover", 10.0,
+                WidgetProblem.notAWebAddress("file:///Users/me/secret.png")
+            ),
+            ("cover.jpg", "a cover", 10, .notAWebAddress("cover.jpg")),
+            ("https://example.com/cover.jpg", " ", 10, .noDescription),
+            ("https://example.com/cover.jpg", "a cover", 0, .noWidth(0)),
+        ])
+    func picturesAreFromTheWeb(address: String, description: String, width: Double, problem: WidgetProblem) {
+        #expect(throws: problem) { try Image("cover", address: address, description: description, width: width) }
+    }
+
+    @Test("an id is its own among its siblings only, and spacing is from 0")
     func idsAreTheirOwnAmongSiblings() throws {
-        let checked = try Widget.column(
-            Column(id: " top ", [.text(Text(id: "hi", "  Hi ")), .button(Button(id: "go", " Go "))])
-        )
-        .checked()
-        #expect(checked == .column(Column(id: "top", [.text(Text(id: "hi", "Hi")), .button(Button(id: "go", "Go"))])))
-        #expect(throws: WidgetProblem.noText) { try Widget.text(Text(id: "empty", " ")).checked() }
-        #expect(throws: WidgetProblem.noID) { try Widget.text(Text(id: " ", "Hi")).checked() }
         #expect(throws: WidgetProblem.sameID("a")) {
-            try Widget.row(Row(id: "r", [.text(Text(id: "a", "One")), .text(Text(id: "a ", "Two"))])).checked()
+            try Row("r", [.text(try Text("a", "One")), .text(try Text("a ", "Two"))])
         }
-        // The same id in two rows is two pieces: each is its own among its siblings.
-        _ = try Widget.column(
-            Column(
-                id: "diary",
+        // The same id in two rows is two pieces.
+        _ = try Column(
+            "diary",
+            [
+                .row(try Row("11-19", [.button(try Button("remove", "Remove"))])),
+                .row(try Row("11-20", [.button(try Button("remove", "Remove"))])),
+            ])
+        #expect(throws: WidgetProblem.negativeSpacing(-1)) { try Row("r", [], spacing: -1) }
+    }
+
+    @Test("a widget decodes as it was made, and one that couldn't be made doesn't decode")
+    func decodingMakesWhatMakingWould() throws {
+        let widget = Widget.column(
+            try Column(
+                "today",
                 [
-                    .row(Row(id: "11-19", [.button(Button(id: "remove", "Remove"))])),
-                    .row(Row(id: "11-20", [.button(Button(id: "remove", "Remove"))])),
-                ])
-        ).checked()
-        #expect(throws: WidgetProblem.negativeSpacing(-1)) { try Widget.row(Row(id: "r", [], spacing: -1)).checked() }
+                    .text(try Text("day", "Cycle day 3", style: .title)),
+                    .image(
+                        try Image("cover", address: "https://example.com/c.jpg", description: "A cover", width: 120)),
+                    .toggle(try Toggle("reminder", "Daily reminder", isOn: true)),
+                ]))
+        let data = try JSONEncoder().encode(widget)
+        #expect(try JSONDecoder().decode(Widget.self, from: data) == widget)
+        let twice = String(decoding: data, as: UTF8.self).replacingOccurrences(of: "\"cover\"", with: "\"day\"")
+        #expect(throws: (any Error).self) { try JSONDecoder().decode(Widget.self, from: Data(twice.utf8)) }
+        let blank = String(decoding: data, as: UTF8.self).replacingOccurrences(of: "\"Cycle day 3\"", with: "\" \"")
+        #expect(throws: (any Error).self) { try JSONDecoder().decode(Widget.self, from: Data(blank.utf8)) }
     }
 
     @Test("a piece is found by its path, and a path is written and read back as text")
     func piecesAreFoundByPath() throws {
         let widget = Widget.column(
-            Column(
-                id: "today",
-                [
-                    .row(Row(id: "11/20", [.button(Button(id: "remove", "Remove"))]))
-                ]))
-        let path = PiecePath(["today", "11/20", "remove"])
-        #expect(widget.widget(at: path) == .button(Button(id: "remove", "Remove")))
-        #expect(widget.widget(at: PiecePath(["today", "11-21", "remove"])) == nil)
+            try Column("today", [.row(try Row("11/20", [.button(try Button("remove", "Remove"))]))]))
+        let path = try #require(PiecePath("today/11%2F20/remove"))
+        #expect(widget.widget(at: path) == .button(try Button("remove", "Remove")))
+        #expect(widget.widget(at: try #require(PiecePath("today/11-21/remove"))) == nil)
         #expect(path.description == "today/11%2F20/remove")
-        #expect(PiecePath(path.description) == path)
+        #expect(PiecePath("today//remove") == nil)
         let event = Event(path: path, value: .flag(true))
         #expect(try JSONDecoder().decode(Event.self, from: JSONEncoder().encode(event)) == event)
     }
