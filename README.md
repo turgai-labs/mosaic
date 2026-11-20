@@ -20,7 +20,7 @@ Server-driven UI widgets for Swift.
   can't be made with two children of one id, so a widget that exists, made or decoded, can be
   shown. Every piece has a `PiecePath` from the top; `Event`. `MosaicHTML` renders a widget as
   HTML, live over server-sent events with a keyed DOM morph; a press names its button by path.
-- **Not built yet:** events from text fields and toggles, closure handlers, `list` and the other
+- **Not built yet:** `grid`, events from text fields and toggles, closure handlers, `list` and the other
   inputs, the session rules, the SwiftUI renderer.
 
 ## Two layers
@@ -38,6 +38,7 @@ The only things a renderer implements. The list grows rarely, and only by decisi
 | Piece | What it is |
 |---|---|
 | `column`, `row` | Pieces one under another, or side by side, aligned and spaced |
+| `grid` | Cells in reading order, a fixed number of columns, every column the same width; a cell may be empty (`nil`) |
 | `text` | Words in a style role |
 | `image` | A picture from a URL, with what it shows in words |
 | `button` | Something to press, and what pressing it does |
@@ -200,3 +201,6 @@ Hosts build nested values; the wire form is flat.
 - **Images:** URLs only, or also data the host holds.
 - **More than one screen:** whether a widget can lead to another, or a host shows one at a time.
 - **The shell:** result builders in the Swift that runs host code, before the SwiftUI-like layer.
+- **Grids:** `Grid(id, columns:, cells: [Widget?])` — columns at least 1, cells' ids their own
+  among them, `nil` an empty cell with nothing in it, so no id to invent. Rendered natively as a
+  grid on every platform. For calendars, tables and keypads, which rows of words can't line up.
