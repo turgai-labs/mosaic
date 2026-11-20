@@ -1,22 +1,24 @@
 # Mosaic
 
-**A widget described once in Swift, built natively everywhere from a few simple pieces.**
+Server-driven UI widgets for Swift.
 
-A host — a server, an app, a running object — says what a widget is. Every platform builds it
-from its own native parts: HTML on the web, SwiftUI on Apple platforms, Compose on Android,
-desktop toolkits later. The widget stays live: it changes when the host's state changes, and
-what a person does in it goes back to the host.
+- The host builds a widget tree from its state. A widget is a value: a tree of a small fixed set
+  of pieces.
+- Each platform renders the tree with native components: HTML, SwiftUI, Compose.
+- After each state change the host builds the tree again, diffs it against the previous one by
+  identity, and sends a patch.
+- Events from the renderer (a press, a field change) go back to the host, which runs the handler
+  attached to that piece.
+- Renderers implement only the core pieces. Larger widgets are composed from them on the host,
+  so adding one needs no renderer change.
 
-## The idea
+## Status
 
-A mosaic is a picture set from small simple tiles. Here the tiles are each platform's native
-components, and the picture is the widget. The tiles are few and fixed; the pictures are not.
-
-That one rule keeps it from exploding:
-
-- **Renderers know only the core pieces.** A renderer is small and stays small.
-- **Everything richer is composed in Swift,** from core pieces, before it's sent. A card, a
-  calendar day, a list row with an icon — written once, on the host, and never in a renderer.
+- **Built:** `Widget` (`row`, `column`, `text`, `button`, `image`), `Widget.checked()`, and
+  `MosaicHTML` — server-rendered HTML, updated over server-sent events with a keyed DOM morph
+  (idiomorph). Buttons are identified by their label.
+- **Designed, not built:** closure handlers, fields, `list`, the patch protocol, the SwiftUI
+  renderer.
 
 ## Two layers
 
@@ -25,8 +27,6 @@ That one rule keeps it from exploding:
 2. **The shell: SwiftUI-like syntax,** added later on top. `VStack { … }` with `if` and `for`
    inside, built with result builders. It produces the same core values, so code written against
    the core keeps working.
-
-The core comes first and has to be good on its own.
 
 ## Core pieces
 
@@ -141,7 +141,7 @@ Only roles, never pixels or colors: `title`, `heading`, `body`, `caption` for te
 | `patch` | host → renderer | What changed since, by identity |
 | `event` | renderer → host | A piece's identity and what happened: pressed, or changed — editing or finished — with its value |
 
-What a host writes is a nested Swift value; the flat wire form is Mosaic's own business.
+Hosts build nested values; the wire form is flat.
 
 ## Renderers
 
