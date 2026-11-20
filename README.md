@@ -201,6 +201,9 @@ Hosts build nested values; the wire form is flat.
 - **Images:** URLs only, or also data the host holds.
 - **More than one screen:** whether a widget can lead to another, or a host shows one at a time.
 - **The shell:** result builders in the Swift that runs host code, before the SwiftUI-like layer.
+
+## Planned
+
 - **Grids:** `Grid(id, columns:, cells: [Widget?])` — columns at least 1, cells' ids their own
   among them, `nil` an empty cell with nothing in it, so no id to invent. Rendered natively as a
   grid on every platform. For calendars, tables and keypads, which rows of words can't line up.
