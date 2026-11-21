@@ -14,14 +14,14 @@ Server-driven UI widgets for Swift.
 
 ## Status
 
-- **Built:** the pieces as `Identifiable` structs — `Column`, `Row`, `Text`, `Image`, `Button`,
+- **Built:** the pieces as `Identifiable` structs — `Stack`, `List`, `Text`, `Image`, `Button`,
   `TextField`, `Toggle` — with `Widget` as their sum. Their values are types made only when
-  they're right — `PieceID`, `Words`, `Points`, `Width`, `WebAddress` — and a column or a row
+  they're right — `PieceID`, `Words`, `Points`, `Width`, `WebAddress` — and a stack or a list
   can't be made with two children of one id, so a widget that exists, made or decoded, can be
   shown. Every piece has a `PiecePath` from the top; `Event`. `MosaicHTML` renders a widget as
   HTML, live over server-sent events with a keyed DOM morph; a press names its button by path.
-- **Not built yet:** `grid`, events from text fields and toggles, closure handlers, `list` and the other
-  inputs, the session rules, the SwiftUI renderer.
+- **Not built yet:** `grid`, `divider`, events from text fields and toggles, closure handlers, the
+  other inputs, the session rules, the SwiftUI renderer.
 
 ## Two layers
 
@@ -35,9 +35,12 @@ Server-driven UI widgets for Swift.
 
 The only things a renderer implements. The list grows rarely, and only by decision.
 
+There is no scroll piece. A screen scrolls when what's on it doesn't fit, and a `list` scrolls its
+rows; neither is something to place. A horizontal `list` may come later.
+
 | Piece | What it is |
 |---|---|
-| `column`, `row` | Pieces one under another, or side by side, aligned and spaced |
+| `stack` | Pieces in a direction — vertical, one under another, or horizontal, side by side — aligned across it and spaced |
 | `grid` | Cells in reading order, a fixed number of columns, every column the same width; a cell may be empty (`nil`) |
 | `text` | Words in a style role |
 | `image` | A picture from a URL, with what it shows in words |
@@ -47,7 +50,7 @@ The only things a renderer implements. The list grows rarely, and only by decisi
 | `choice` | One or several of given options, and what happens as they change |
 | `dateField` | A date, a time, or both, and what happens as it changes |
 | `slider` | A number in a range, and what happens as it changes |
-| `list` | Rows, each with an `id` |
+| `list` | Rows one under another, each with an `id`, scrolling when they don't fit; many rows cost only those shown |
 | `divider` | A line between pieces |
 
 ## A widget is computed from state
@@ -57,11 +60,11 @@ LiveView render:
 
 ```swift
 var today: Widget {
-    .column([
+    .stack(.vertical, [
         .text("Cycle day \(cycleDay)", style: .title),
         .toggle("Daily reminder", isOn: reminderOn) { on in self.setReminder(on: on) },
         .list(diary.map { entry in
-            .row(id: entry.date, [
+            .stack(id: entry.date, .horizontal, [
                 .text(entry.sensations.joined(separator: ", ")),
                 .button("Remove", kind: .destructive) { self.removePain(date: entry.date) },
             ])

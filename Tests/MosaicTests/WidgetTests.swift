@@ -33,28 +33,33 @@ struct WidgetTests {
     @Test("an id is its own among its siblings only, and spacing is from 0")
     func idsAreTheirOwnAmongSiblings() throws {
         #expect(throws: WidgetProblem.sameID("a")) {
-            try Row("r", [.text(try Text("a", "One")), .text(try Text("a ", "Two"))])
+            try Stack("r", .horizontal(), [.text(try Text("a", "One")), .text(try Text("a ", "Two"))])
+        }
+        #expect(throws: WidgetProblem.sameID("day")) {
+            try List("days", [.text(try Text("day", "Monday")), .text(try Text("day", "Tuesday"))])
         }
         // The same id in two rows is two pieces.
-        _ = try Column(
+        _ = try List(
             "diary",
             [
-                .row(try Row("11-19", [.button(try Button("remove", "Remove"))])),
-                .row(try Row("11-20", [.button(try Button("remove", "Remove"))])),
+                .stack(try Stack("11-19", .horizontal(), [.button(try Button("remove", "Remove"))])),
+                .stack(try Stack("11-20", .horizontal(), [.button(try Button("remove", "Remove"))])),
             ])
-        #expect(throws: WidgetProblem.negativeSpacing(-1)) { try Row("r", [], spacing: -1) }
+        #expect(throws: WidgetProblem.negativeSpacing(-1)) { try Stack("r", .horizontal(), [], spacing: -1) }
     }
 
     @Test("a widget decodes as it was made, and one that couldn't be made doesn't decode")
     func decodingMakesWhatMakingWould() throws {
-        let widget = Widget.column(
-            try Column(
-                "today",
+        let widget = Widget.stack(
+            try Stack(
+                "today", .vertical(),
                 [
                     .text(try Text("day", "Cycle day 3", style: .title)),
                     .image(
                         try Image("cover", address: "https://example.com/c.jpg", description: "A cover", width: 120)),
                     .toggle(try Toggle("reminder", "Daily reminder", isOn: true)),
+                    .list(try List("notes", [.text(try Text("first", "Slept well"))])),
+                    .stack(try Stack("end", .horizontal(alignment: .bottom), [], spacing: 4)),
                 ]))
         let data = try JSONEncoder().encode(widget)
         #expect(try JSONDecoder().decode(Widget.self, from: data) == widget)
@@ -66,8 +71,8 @@ struct WidgetTests {
 
     @Test("a piece is found by its path, and a path is written and read back as text")
     func piecesAreFoundByPath() throws {
-        let widget = Widget.column(
-            try Column("today", [.row(try Row("11/20", [.button(try Button("remove", "Remove"))]))]))
+        let widget = Widget.stack(
+            try Stack("today", .vertical(), [.list(try List("11/20", [.button(try Button("remove", "Remove"))]))]))
         let path = try #require(PiecePath("today/11%2F20/remove"))
         #expect(widget.widget(at: path) == .button(try Button("remove", "Remove")))
         #expect(widget.widget(at: try #require(PiecePath("today/11-21/remove"))) == nil)

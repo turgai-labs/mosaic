@@ -1,4 +1,4 @@
-public import Foundation
+import Foundation
 
 // MARK: Paths
 
@@ -46,73 +46,71 @@ public struct PiecePath: Hashable, Codable, Sendable, CustomStringConvertible {
 
 // MARK: Pieces
 
-/// Pieces one under another, top to bottom, aligned, `spacing` points apart: each child's id its own
-/// among them.
-public struct Column: Identifiable, Codable, Equatable, Sendable {
+/// Pieces one after another, one under another or side by side, `spacing` points apart: each
+/// child's id its own among them.
+public struct Stack: Identifiable, Codable, Equatable, Sendable {
     public let id: PieceID
     public let children: [Widget]
-    public var alignment: ColumnAlignment
+    public var direction: Direction
     public var spacing: Points
 
-    public init(id: PieceID, _ children: [Widget], alignment: ColumnAlignment = .center, spacing: Points = .standard)
+    /// Which way it stacks, and how its pieces line up across it.
+    public enum Direction: Codable, Equatable, Sendable {
+        /// One under another, lined up across by their leading edges, centres or trailing edges.
+        case vertical(alignment: HorizontalAlignment = .center)
+        /// Side by side, lined up down by their tops, centres or bottoms.
+        case horizontal(alignment: VerticalAlignment = .center)
+    }
+
+    public init(id: PieceID, _ direction: Direction, _ children: [Widget], spacing: Points = .standard)
         throws(WidgetProblem)
     {
         try Widget.distinct(children)
         self.id = id
         self.children = children
-        self.alignment = alignment
+        self.direction = direction
         self.spacing = spacing
     }
 
-    public init(_ id: String, _ children: [Widget], alignment: ColumnAlignment = .center, spacing: Double = 12)
+    public init(_ id: String, _ direction: Direction, _ children: [Widget], spacing: Double = 12)
         throws(WidgetProblem)
     {
-        try self.init(id: PieceID(id), children, alignment: alignment, spacing: Points(spacing))
+        try self.init(id: PieceID(id), direction, children, spacing: Points(spacing))
     }
 
-    private enum CodingKeys: CodingKey { case id, children, alignment, spacing }
+    private enum CodingKeys: CodingKey { case id, children, direction, spacing }
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         try self.init(
-            id: container.decode(PieceID.self, forKey: .id), container.decode([Widget].self, forKey: .children),
-            alignment: container.decode(ColumnAlignment.self, forKey: .alignment),
-            spacing: container.decode(Points.self, forKey: .spacing))
+            id: container.decode(PieceID.self, forKey: .id), container.decode(Direction.self, forKey: .direction),
+            container.decode([Widget].self, forKey: .children), spacing: container.decode(Points.self, forKey: .spacing)
+        )
     }
 }
 
-/// Pieces side by side, left to right, aligned, `spacing` points apart: each child's id its own
-/// among them.
-public struct Row: Identifiable, Codable, Equatable, Sendable {
+/// Items one under another, for long or growing collections: each built when it comes into view,
+/// each item's id its own among them.
+public struct List: Identifiable, Codable, Equatable, Sendable {
     public let id: PieceID
-    public let children: [Widget]
-    public var alignment: RowAlignment
-    public var spacing: Points
+    public let items: [Widget]
 
-    public init(id: PieceID, _ children: [Widget], alignment: RowAlignment = .center, spacing: Points = .standard)
-        throws(WidgetProblem)
-    {
-        try Widget.distinct(children)
+    public init(id: PieceID, _ items: [Widget]) throws(WidgetProblem) {
+        try Widget.distinct(items)
         self.id = id
-        self.children = children
-        self.alignment = alignment
-        self.spacing = spacing
+        self.items = items
     }
 
-    public init(_ id: String, _ children: [Widget], alignment: RowAlignment = .center, spacing: Double = 12)
-        throws(WidgetProblem)
-    {
-        try self.init(id: PieceID(id), children, alignment: alignment, spacing: Points(spacing))
+    public init(_ id: String, _ items: [Widget]) throws(WidgetProblem) {
+        try self.init(id: PieceID(id), items)
     }
 
-    private enum CodingKeys: CodingKey { case id, children, alignment, spacing }
+    private enum CodingKeys: CodingKey { case id, items }
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         try self.init(
-            id: container.decode(PieceID.self, forKey: .id), container.decode([Widget].self, forKey: .children),
-            alignment: container.decode(RowAlignment.self, forKey: .alignment),
-            spacing: container.decode(Points.self, forKey: .spacing))
+            id: container.decode(PieceID.self, forKey: .id), container.decode([Widget].self, forKey: .items))
     }
 }
 
@@ -223,10 +221,10 @@ public struct Toggle: Identifiable, Codable, Equatable, Sendable {
 
 // MARK: Widget
 
-/// A widget: one of the pieces, each with its id; a column or a row holds more.
+/// A widget: one of the pieces, each with its id; a stack or a list holds more.
 public indirect enum Widget: Identifiable, Codable, Equatable, Sendable {
-    case column(Column)
-    case row(Row)
+    case stack(Stack)
+    case list(List)
     case text(Text)
     case image(Image)
     case button(Button)
@@ -235,8 +233,8 @@ public indirect enum Widget: Identifiable, Codable, Equatable, Sendable {
 
     public var id: PieceID {
         switch self {
-        case .column(let piece): piece.id
-        case .row(let piece): piece.id
+        case .stack(let piece): piece.id
+        case .list(let piece): piece.id
         case .text(let piece): piece.id
         case .image(let piece): piece.id
         case .button(let piece): piece.id
@@ -245,11 +243,11 @@ public indirect enum Widget: Identifiable, Codable, Equatable, Sendable {
         }
     }
 
-    /// What it holds: a column's or a row's pieces, or nothing.
+    /// What it holds: a stack's pieces, a list's items, or nothing.
     public var children: [Widget] {
         switch self {
-        case .column(let column): column.children
-        case .row(let row): row.children
+        case .stack(let stack): stack.children
+        case .list(let list): list.items
         case .text, .image, .button, .textField, .toggle: []
         }
     }

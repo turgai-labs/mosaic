@@ -12,25 +12,26 @@ struct WidgetHTMLTests {
 
     @Test("each piece is named by its path, slides by the edges its box lines it up by, and a press names its path")
     func piecesAreNamedByTheirPaths() throws {
-        let widget = Widget.column(
-            try Column(
-                "top",
+        let widget = Widget.stack(
+            try Stack(
+                "top", .vertical(),
                 [
                     .text(try Text("now playing", "Song", style: .title)),
                     .image(
                         try Image(
                             "cover", address: "https://example.com/cover.jpg", description: "The album's cover",
                             aspectRatio: .square, fit: .fill, width: 120)),
-                    .row(
-                        try Row(
-                            "controls",
+                    .stack(
+                        try Stack(
+                            "controls", .horizontal(alignment: .top),
                             [
                                 .button(try Button("play", "Play", kind: .prominent)),
                                 .button(try Button("next", "Next")),
                             ],
-                            alignment: .top, spacing: 6)),
+                            spacing: 6)),
                     .textField(try TextField("note", text: "Loud", placeholder: "A note")),
                     .toggle(try Toggle("repeat", "Repeat", isOn: true)),
+                    .list(try List("queue", [.text(try Text("next song", "Next song"))])),
                 ]))
         let html = WidgetDocument(widget, version: 1, title: "Website", live: "live", press: press).render()
         #expect(html.contains("Idiomorph.morph(page, html"))
@@ -41,20 +42,22 @@ struct WidgetHTMLTests {
         }
         #expect(html.contains(#"class="title primary" data-anchor="center top""#), "\(html)")
         #expect(html.contains(#"data-press="press?path=top/controls/play&amp;page=1""#), "\(html)")
-        #expect(html.contains(#"class="row top" style="gap: 6px"#))
+        #expect(html.contains(#"class="stack horizontal top" style="gap: 6px"#))
         #expect(
             html.contains(
                 #"src="https://example.com/cover.jpg" alt="The album's cover" loading="lazy" class="image fill" style="aspect-ratio: 1 / 1; width: 120px; "#
             ), "\(html)")
         #expect(html.contains(#"value="Loud""#) && html.contains(#"placeholder="A note""#), "\(html)")
         #expect(html.contains("checked"), "\(html)")
+        #expect(html.contains(#"id="p-top_2f_queue" class="list""#), "\(html)")
+        #expect(html.contains(#"id="p-top" class="stack vertical center""#), "\(html)")
         let lined = WidgetView(
-            .column(
-                try Column(
-                    "top",
+            .stack(
+                try Stack(
+                    "top", .vertical(),
                     [
-                        .column(try Column("left", [.text(try Text("words", "Left"))], alignment: .leading)),
-                        .row(try Row("low", [.button(try Button("go", "Go"))], alignment: .bottom)),
+                        .stack(try Stack("left", .vertical(alignment: .leading), [.text(try Text("words", "Left"))])),
+                        .stack(try Stack("low", .horizontal(alignment: .bottom), [.button(try Button("go", "Go"))])),
                     ])), version: 1, press: press
         ).render()
         #expect(

@@ -144,10 +144,13 @@ public struct WidgetDocument: HTMLDocument {
                 --secondary: #a1a1a6; --accent: #4b9dff; --positive: #4cc56d; --warning: #ffa83d; --negative: #ff6b5e; } }
         body { margin: 0; padding: 24px 16px; font: 16px/1.4 system-ui, sans-serif; }
         p { margin: 0; }
-        .column { display: flex; flex-direction: column; gap: var(--gap); align-items: center; }
-        .row { display: flex; flex-direction: row; flex-wrap: wrap; gap: var(--gap); align-items: center; }
-        .row.top { align-items: flex-start; } .row.bottom { align-items: flex-end; }
-        .column.leading { align-items: flex-start; } .column.trailing { align-items: flex-end; }
+        .stack { display: flex; gap: var(--gap); align-items: center; }
+        .stack.vertical { flex-direction: column; }
+        .stack.horizontal { flex-direction: row; flex-wrap: wrap; }
+        .vertical.leading { align-items: flex-start; } .vertical.trailing { align-items: flex-end; }
+        .horizontal.top { align-items: flex-start; } .horizontal.bottom { align-items: flex-end; }
+        .list { display: flex; flex-direction: column; gap: var(--gap); align-self: stretch; }
+        .list > * { content-visibility: auto; contain-intrinsic-size: auto 48px; }
         button { font: inherit; padding: 6px 14px; border: 1px solid var(--line); border-radius: 8px;
                  background: var(--button); color: inherit; cursor: pointer; }
         .title { font-size: 1.75em; font-weight: 700; line-height: 1.2; }
@@ -203,19 +206,26 @@ public struct WidgetView: HTML, Sendable {
 
     public var body: some HTML {
         switch widget {
-        case .row(let row):
-            div(
-                .id(Self.name(path)), .class("row \(row.alignment.rawValue)"),
-                .style("gap: \(Self.points(row.spacing.rawValue))")
-            ) {
-                children(row.children, Anchor(horizontal: .leading, vertical: row.alignment))
-            }.attributes(contentsOf: anchored())
-        case .column(let column):
-            div(
-                .id(Self.name(path)), .class("column \(column.alignment.rawValue)"),
-                .style("gap: \(Self.points(column.spacing.rawValue))")
-            ) {
-                children(column.children, Anchor(horizontal: column.alignment, vertical: .top))
+        case .stack(let stack):
+            switch stack.direction {
+            case .vertical(let alignment):
+                div(
+                    .id(Self.name(path)), .class("stack vertical \(alignment.rawValue)"),
+                    .style("gap: \(Self.points(stack.spacing.rawValue))")
+                ) {
+                    children(stack.children, Anchor(horizontal: alignment, vertical: .top))
+                }.attributes(contentsOf: anchored())
+            case .horizontal(let alignment):
+                div(
+                    .id(Self.name(path)), .class("stack horizontal \(alignment.rawValue)"),
+                    .style("gap: \(Self.points(stack.spacing.rawValue))")
+                ) {
+                    children(stack.children, Anchor(horizontal: .leading, vertical: alignment))
+                }.attributes(contentsOf: anchored())
+            }
+        case .list(let list):
+            div(.id(Self.name(path)), .class("list")) {
+                children(list.items, Anchor(horizontal: .leading, vertical: .top))
             }.attributes(contentsOf: anchored())
         case .text(let text):
             p(.id(Self.name(path)), .class("\(text.style.rawValue) \(text.color.rawValue)")) { text.words.rawValue }
@@ -254,12 +264,12 @@ public struct WidgetView: HTML, Sendable {
         [.data("anchor", value: anchor.classes)]
     }
 
-    /// How a box lines up what's in it, across and down: a column lines its pieces up by its
-    /// alignment and stacks them from the top; a row lines them up from the leading edge, and
-    /// down by its alignment.
+    /// How a box lines up what's in it, across and down: a vertical stack lines its pieces up across
+    /// by its alignment and stacks them from the top; a horizontal one lines them up from the
+    /// leading edge, and down by its alignment; a list from the leading edge and the top.
     struct Anchor: Equatable, Sendable {
-        let horizontal: ColumnAlignment
-        let vertical: RowAlignment
+        let horizontal: HorizontalAlignment
+        let vertical: VerticalAlignment
 
         var classes: String { "\(horizontal.rawValue) \(vertical.rawValue)" }
     }

@@ -1,5 +1,5 @@
-/// How pieces side by side line up.
-public enum RowAlignment: String, Codable, Sendable, Equatable {
+/// How pieces side by side line up, down: along their tops, centres or bottoms.
+public enum VerticalAlignment: String, Codable, Sendable, Equatable {
     /// Along their tops.
     case top
     /// On their centres.
@@ -8,8 +8,9 @@ public enum RowAlignment: String, Codable, Sendable, Equatable {
     case bottom
 }
 
-/// How pieces one under another line up.
-public enum ColumnAlignment: String, Codable, Sendable, Equatable {
+/// How pieces one under another line up, across: along their leading edges, centres or trailing
+/// edges.
+public enum HorizontalAlignment: String, Codable, Sendable, Equatable {
     /// Along their leading edges.
     case leading
     /// On their centres.
