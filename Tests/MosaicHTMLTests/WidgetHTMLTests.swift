@@ -64,4 +64,30 @@ struct WidgetHTMLTests {
             lined.contains(#"id="p-top_2f_left_2f_words" class="body primary" data-anchor="leading top""#), "\(lined)")
         #expect(lined.contains(#"data-anchor="leading bottom""#), "\(lined)")
     }
+
+    @Test("a grid is its columns of one width, an empty cell holding its place, and a divider is a line")
+    func gridsAndDividers() throws {
+        let widget = Widget.stack(
+            try Stack(
+                "top", .vertical(),
+                [
+                    .grid(
+                        try Grid(
+                            "month", columns: 7,
+                            [nil, .text(try Text("1", "1")), .button(try Button("2", "2"))], spacing: 4)),
+                    .divider(try Divider("line")),
+                ]))
+        let html = WidgetView(widget, version: 3, press: press).render()
+        #expect(
+            html.contains(
+                #"id="p-top_2f_month" class="grid" style="grid-template-columns: repeat(7, 1fr); gap: 4px""#),
+            "\(html)")
+        // The empty cell is there, so what follows it is in the second column.
+        let empty = try #require(html.range(of: #"id="p-top_2f_month-empty-0" aria-hidden="true""#), "\(html)")
+        let first = try #require(html.range(of: #"id="p-top_2f_month_2f_1""#), "\(html)")
+        #expect(empty.lowerBound < first.lowerBound)
+        #expect(html.contains(#"id="p-top_2f_month_2f_1" class="body primary" data-anchor="center center""#), "\(html)")
+        #expect(html.contains(#"data-press="press?path=top/month/2&amp;page=3""#), "\(html)")
+        #expect(html.contains(#"<hr id="p-top_2f_line" class="divider""#), "\(html)")
+    }
 }

@@ -149,7 +149,12 @@ public struct WidgetDocument: HTMLDocument {
         .stack.horizontal { flex-direction: row; flex-wrap: wrap; }
         .vertical.leading { align-items: flex-start; } .vertical.trailing { align-items: flex-end; }
         .horizontal.top { align-items: flex-start; } .horizontal.bottom { align-items: flex-end; }
+        .grid { display: grid; gap: var(--gap); width: fit-content; max-width: 100%;
+                align-items: center; justify-items: center; }
         .list { display: flex; flex-direction: column; gap: var(--gap); align-self: stretch; }
+        hr.divider { border: 0; background: var(--line); margin: 0; align-self: stretch; height: 1px; }
+        .grid > hr.divider { justify-self: stretch; width: auto; }
+        .stack.horizontal > hr.divider { width: 1px; height: auto; }
         .list > * { content-visibility: auto; contain-intrinsic-size: auto 48px; }
         button { font: inherit; padding: 6px 14px; border: 1px solid var(--line); border-radius: 8px;
                  background: var(--button); color: inherit; cursor: pointer; }
@@ -223,10 +228,30 @@ public struct WidgetView: HTML, Sendable {
                     children(stack.children, Anchor(horizontal: .leading, vertical: alignment))
                 }.attributes(contentsOf: anchored())
             }
+        case .grid(let grid):
+            div(
+                .id(Self.name(path)), .class("grid"),
+                .style(
+                    "grid-template-columns: repeat(\(grid.columns.rawValue), 1fr); gap: \(Self.points(grid.spacing.rawValue))"
+                )
+            ) {
+                ForEach(Array(grid.cells.enumerated())) { index, cell in
+                    if let cell {
+                        WidgetView(
+                            cell, version: version, press: press, path: path.appending(cell.id),
+                            anchor: Anchor(horizontal: .center, vertical: .center))
+                    } else {
+                        // An empty cell holds its place, named by where it is among the cells.
+                        div(.id("\(Self.name(path))-empty-\(index)"), .custom(name: "aria-hidden", value: "true")) {}
+                    }
+                }
+            }.attributes(contentsOf: anchored())
         case .list(let list):
             div(.id(Self.name(path)), .class("list")) {
                 children(list.items, Anchor(horizontal: .leading, vertical: .top))
             }.attributes(contentsOf: anchored())
+        case .divider:
+            hr(.id(Self.name(path)), .class("divider")).attributes(contentsOf: anchored())
         case .text(let text):
             p(.id(Self.name(path)), .class("\(text.style.rawValue) \(text.color.rawValue)")) { text.words.rawValue }
                 .attributes(contentsOf: anchored())

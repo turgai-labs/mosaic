@@ -47,9 +47,9 @@ public struct PiecePath: Hashable, Codable, Sendable, CustomStringConvertible {
 // MARK: Pieces
 
 /// Pieces one after another, one under another or side by side, `spacing` points apart: each
-/// child's id its own among them.
+/// child's id its own among them, one given none named by its kind and place.
 public struct Stack: Identifiable, Codable, Equatable, Sendable {
-    public let id: PieceID
+    public internal(set) var id: PieceID
     public let children: [Widget]
     public var direction: Direction
     public var spacing: Points
@@ -65,11 +65,19 @@ public struct Stack: Identifiable, Codable, Equatable, Sendable {
     public init(id: PieceID, _ direction: Direction, _ children: [Widget], spacing: Points = .standard)
         throws(WidgetProblem)
     {
+        let children = Widget.placed(children)
         try Widget.distinct(children)
         self.id = id
         self.children = children
         self.direction = direction
         self.spacing = spacing
+    }
+
+    public init(id: String? = nil, _ direction: Direction, _ children: [Widget], spacing: Double = 12)
+        throws(WidgetProblem)
+    {
+        try self.init(
+            id: try id.map(PieceID.init) ?? PieceID(kind: "stack"), direction, children, spacing: Points(spacing))
     }
 
     public init(_ id: String, _ direction: Direction, _ children: [Widget], spacing: Double = 12)
@@ -90,12 +98,13 @@ public struct Stack: Identifiable, Codable, Equatable, Sendable {
 }
 
 /// Items one under another, for long or growing collections: each built when it comes into view,
-/// each item's id its own among them.
+/// each item given an id, its own among them, since items move.
 public struct List: Identifiable, Codable, Equatable, Sendable {
     public let id: PieceID
     public let items: [Widget]
 
     public init(id: PieceID, _ items: [Widget]) throws(WidgetProblem) {
+        if let place = items.firstIndex(where: { !$0.id.isGiven }) { throw .itemWithoutID(place + 1) }
         try Widget.distinct(items)
         self.id = id
         self.items = items
@@ -114,9 +123,68 @@ public struct List: Identifiable, Codable, Equatable, Sendable {
     }
 }
 
+/// Cells in reading order, a fixed number to a row, every column the same width, `spacing` points
+/// apart: for what lines up in columns, a calendar, a table, a keypad. A cell with nothing in it is
+/// `nil`, so there's nothing to name. Each cell's id is its own among them, one given none named by
+/// its kind and place.
+public struct Grid: Identifiable, Codable, Equatable, Sendable {
+    public internal(set) var id: PieceID
+    public let columns: Columns
+    public let cells: [Widget?]
+    public var spacing: Points
+
+    public init(id: PieceID, columns: Columns, _ cells: [Widget?], spacing: Points = .standard)
+        throws(WidgetProblem)
+    {
+        let cells = Widget.placed(cells)
+        try Widget.distinct(cells.compactMap { $0 })
+        self.id = id
+        self.columns = columns
+        self.cells = cells
+        self.spacing = spacing
+    }
+
+    public init(id: String? = nil, columns: Int, _ cells: [Widget?], spacing: Double = 12) throws(WidgetProblem) {
+        try self.init(
+            id: try id.map(PieceID.init) ?? PieceID(kind: "grid"), columns: Columns(columns), cells,
+            spacing: Points(spacing))
+    }
+
+    public init(_ id: String, columns: Int, _ cells: [Widget?], spacing: Double = 12) throws(WidgetProblem) {
+        try self.init(id: PieceID(id), columns: Columns(columns), cells, spacing: Points(spacing))
+    }
+
+    private enum CodingKeys: CodingKey { case id, columns, cells, spacing }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        try self.init(
+            id: container.decode(PieceID.self, forKey: .id), columns: container.decode(Columns.self, forKey: .columns),
+            container.decode([Widget?].self, forKey: .cells), spacing: container.decode(Points.self, forKey: .spacing))
+    }
+}
+
+/// A line between what's before it and what's after: across a vertical stack, a list or a grid's
+/// cell, down a horizontal stack.
+public struct Divider: Identifiable, Codable, Equatable, Sendable {
+    public internal(set) var id: PieceID
+
+    public init(id: PieceID) {
+        self.id = id
+    }
+
+    public init(_ id: String) throws(WidgetProblem) {
+        self.init(id: try PieceID(id))
+    }
+
+    public init() {
+        self.init(id: PieceID(kind: "divider"))
+    }
+}
+
 /// Words to read, in a style and colour.
 public struct Text: Identifiable, Codable, Equatable, Sendable {
-    public let id: PieceID
+    public internal(set) var id: PieceID
     public var words: Words
     public var style: TextStyle
     public var color: TextColor
@@ -133,12 +201,20 @@ public struct Text: Identifiable, Codable, Equatable, Sendable {
     {
         self.init(id: try PieceID(id), words: try Words.of(words, or: .noText), style: style, color: color)
     }
+
+    public init(id: String? = nil, _ words: String, style: TextStyle = .body, color: TextColor = .primary)
+        throws(WidgetProblem)
+    {
+        self.init(
+            id: try id.map(PieceID.init) ?? PieceID(kind: "text"), words: try Words.of(words, or: .noText),
+            style: style, color: color)
+    }
 }
 
 /// A picture from the web, `description` saying what it shows, `width` points wide, or as wide as
 /// there's room for.
 public struct Image: Identifiable, Codable, Equatable, Sendable {
-    public let id: PieceID
+    public internal(set) var id: PieceID
     public var address: WebAddress
     public var description: Words
     public var aspectRatio: AspectRatio
@@ -166,9 +242,19 @@ public struct Image: Identifiable, Codable, Equatable, Sendable {
             description: try Words.of(description, or: .noDescription), aspectRatio: aspectRatio, fit: fit,
             width: try width.map { (width) throws(WidgetProblem) in try Width(width) })
     }
+
+    public init(
+        id: String? = nil, address: String, description: String, aspectRatio: AspectRatio = .original,
+        fit: ImageFit = .fit, width: Double? = nil
+    ) throws(WidgetProblem) {
+        self.init(
+            id: try id.map(PieceID.init) ?? PieceID(kind: "image"), address: try WebAddress(address),
+            description: try Words.of(description, or: .noDescription), aspectRatio: aspectRatio, fit: fit,
+            width: try width.map { (width) throws(WidgetProblem) in try Width(width) })
+    }
 }
 
-/// Something to press.
+/// Something to press, by the id it's given: a press names it, so its name doesn't follow its place.
 public struct Button: Identifiable, Codable, Equatable, Sendable {
     public let id: PieceID
     public var label: Words
@@ -221,10 +307,14 @@ public struct Toggle: Identifiable, Codable, Equatable, Sendable {
 
 // MARK: Widget
 
-/// A widget: one of the pieces, each with its id; a stack or a list holds more.
+/// A widget: one of the pieces, each with its id; a stack, a grid or a list holds more. What's
+/// only shown or holds others may be given no id, and is named by its kind and place among its
+/// siblings; what a person acts on, and each item of a list, is given one.
 public indirect enum Widget: Identifiable, Codable, Equatable, Sendable {
     case stack(Stack)
+    case grid(Grid)
     case list(List)
+    case divider(Divider)
     case text(Text)
     case image(Image)
     case button(Button)
@@ -234,7 +324,9 @@ public indirect enum Widget: Identifiable, Codable, Equatable, Sendable {
     public var id: PieceID {
         switch self {
         case .stack(let piece): piece.id
+        case .grid(let piece): piece.id
         case .list(let piece): piece.id
+        case .divider(let piece): piece.id
         case .text(let piece): piece.id
         case .image(let piece): piece.id
         case .button(let piece): piece.id
@@ -243,12 +335,14 @@ public indirect enum Widget: Identifiable, Codable, Equatable, Sendable {
         }
     }
 
-    /// What it holds: a stack's pieces, a list's items, or nothing.
+    /// What it holds: a stack's pieces, a grid's cells that hold something, a list's items, or
+    /// nothing.
     public var children: [Widget] {
         switch self {
         case .stack(let stack): stack.children
+        case .grid(let grid): grid.cells.compactMap { $0 }
         case .list(let list): list.items
-        case .text, .image, .button, .textField, .toggle: []
+        case .divider, .text, .image, .button, .textField, .toggle: []
         }
     }
 
@@ -265,6 +359,36 @@ public indirect enum Widget: Identifiable, Codable, Equatable, Sendable {
 }
 
 extension Widget {
+    /// Siblings as what holds them has them: each given no id named by its kind and its place among
+    /// them, an empty place counted.
+    static func placed(_ siblings: [Widget?]) -> [Widget?] {
+        siblings.enumerated().map { place, sibling in
+            guard let sibling, !sibling.id.isGiven else { return sibling }
+            switch sibling {
+            case .stack(var piece):
+                piece.id = PieceID(kind: "stack", place: place)
+                return .stack(piece)
+            case .grid(var piece):
+                piece.id = PieceID(kind: "grid", place: place)
+                return .grid(piece)
+            case .divider(var piece):
+                piece.id = PieceID(kind: "divider", place: place)
+                return .divider(piece)
+            case .text(var piece):
+                piece.id = PieceID(kind: "text", place: place)
+                return .text(piece)
+            case .image(var piece):
+                piece.id = PieceID(kind: "image", place: place)
+                return .image(piece)
+            case .list, .button, .textField, .toggle: return sibling
+            }
+        }
+    }
+
+    static func placed(_ siblings: [Widget]) -> [Widget] {
+        placed(siblings.map(Optional.some)).compactMap { $0 }
+    }
+
     /// Siblings, each id its own among them.
     static func distinct(_ children: [Widget]) throws(WidgetProblem) {
         var ids: Set<PieceID> = []

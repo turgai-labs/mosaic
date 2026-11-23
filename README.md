@@ -14,14 +14,18 @@ Server-driven UI widgets for Swift.
 
 ## Status
 
-- **Built:** the pieces as `Identifiable` structs — `Stack`, `List`, `Text`, `Image`, `Button`,
-  `TextField`, `Toggle` — with `Widget` as their sum. Their values are types made only when
-  they're right — `PieceID`, `Words`, `Points`, `Width`, `WebAddress` — and a stack or a list
-  can't be made with two children of one id, so a widget that exists, made or decoded, can be
-  shown. Every piece has a `PiecePath` from the top; `Event`. `MosaicHTML` renders a widget as
+- **Built:** the pieces as `Identifiable` structs — `Stack`, `Grid`, `List`, `Divider`, `Text`,
+  `Image`, `Button`, `TextField`, `Toggle` — with `Widget` as their sum. Their values are types
+  made only when they're right — `PieceID`, `Words`, `Points`, `Columns`, `Width`, `WebAddress` —
+  and a stack, a grid or a list can't be made with two children of one id, so a widget that
+  exists, made or decoded, can be shown. A piece that's only shown or holds others — `Stack`,
+  `Grid`, `Divider`, `Text`, `Image` — may be given no id: what holds it names it by its kind and
+  place among its siblings, `#text-2`. What a person acts on, and each item of a list, is given
+  one, since a press names its piece and items move. Every piece has a `PiecePath` from the
+  top; `Event`. `MosaicHTML` renders a widget as
   HTML, live over server-sent events with a keyed DOM morph; a press names its button by path.
-- **Not built yet:** `grid`, `divider`, events from text fields and toggles, closure handlers, the
-  other inputs, the session rules, the SwiftUI renderer.
+- **Not built yet:** events from text fields and toggles, closure handlers, the other inputs
+  (`choice`, `dateField`, `slider`), the session rules, the SwiftUI renderer.
 
 ## Two layers
 
@@ -204,9 +208,3 @@ Hosts build nested values; the wire form is flat.
 - **Images:** URLs only, or also data the host holds.
 - **More than one screen:** whether a widget can lead to another, or a host shows one at a time.
 - **The shell:** result builders in the Swift that runs host code, before the SwiftUI-like layer.
-
-## Planned
-
-- **Grids:** `Grid(id, columns:, cells: [Widget?])` — columns at least 1, cells' ids their own
-  among them, `nil` an empty cell with nothing in it, so no id to invent. Rendered natively as a
-  grid on every platform. For calendars, tables and keypads, which rows of words can't line up.
