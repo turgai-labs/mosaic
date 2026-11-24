@@ -7,6 +7,7 @@ let package = Package(
     products: [
         .library(name: "Mosaic", targets: ["Mosaic"]),
         .library(name: "MosaicHTML", targets: ["MosaicHTML"]),
+        .library(name: "MosaicSwiftUI", targets: ["MosaicSwiftUI"]),
     ],
     dependencies: [
         .package(url: "https://github.com/elementary-swift/elementary.git", from: "0.9.0")
@@ -19,7 +20,10 @@ let package = Package(
             name: "MosaicHTML",
             dependencies: ["Mosaic", .product(name: "Elementary", package: "elementary")]
         ),
+        // A widget drawn with SwiftUI, on the platforms that have it.
+        .target(name: "MosaicSwiftUI", dependencies: ["Mosaic"]),
         .testTarget(name: "MosaicTests", dependencies: ["Mosaic"]),
+        .testTarget(name: "MosaicSwiftUITests", dependencies: ["Mosaic", "MosaicSwiftUI"]),
         .testTarget(
             name: "MosaicHTMLTests",
             dependencies: ["Mosaic", "MosaicHTML", .product(name: "Elementary", package: "elementary")]

@@ -24,8 +24,10 @@ Server-driven UI widgets for Swift.
   one, since a press names its piece and items move. Every piece has a `PiecePath` from the
   top; `Event`. `MosaicHTML` renders a widget as
   HTML, live over server-sent events with a keyed DOM morph; a press names its button by path.
+- **`MosaicSwiftUI`** draws a widget with SwiftUI, a view for each piece, on the platforms that
+  have it: a press names its button by path, as in HTML.
 - **Not built yet:** events from text fields and toggles, closure handlers, the other inputs
-  (`choice`, `dateField`, `slider`), the session rules, the SwiftUI renderer.
+  (`choice`, `dateField`, `slider`), the session rules.
 
 ## Two layers
 
