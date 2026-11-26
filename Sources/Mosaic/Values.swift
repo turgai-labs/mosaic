@@ -145,7 +145,6 @@ public struct WebAddress: Hashable, Codable, Sendable, CustomStringConvertible {
 public enum WidgetProblem: Error, Codable, Equatable, Sendable, CustomStringConvertible {
     case noID
     case noWords
-    case noText
     case noLabel
     case noDescription
     case sameID(String)
@@ -159,7 +158,6 @@ public enum WidgetProblem: Error, Codable, Equatable, Sendable, CustomStringConv
         switch self {
         case .noID: "An id is empty: give it one."
         case .noWords: "Words are empty: they say something."
-        case .noText: "A text has no words: give it `words`."
         case .noLabel: "A button or a toggle has no label: give it `label`."
         case .noDescription: "A picture has no description: say what it shows, in `description`."
         case .itemWithoutID(let place):

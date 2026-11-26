@@ -131,7 +131,7 @@
         let text: Mosaic.Text
 
         var body: some View {
-            SwiftUI.Text(text.words.rawValue)
+            SwiftUI.Text(text.words)
                 .font(Font(text.style))
                 .italic(text.style == .emphasis)
                 .foregroundStyle(Color(text.color))

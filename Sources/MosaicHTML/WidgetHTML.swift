@@ -253,7 +253,7 @@ public struct WidgetView: HTML, Sendable {
         case .divider:
             hr(.id(Self.name(path)), .class("divider")).attributes(contentsOf: anchored())
         case .text(let text):
-            p(.id(Self.name(path)), .class("\(text.style.rawValue) \(text.color.rawValue)")) { text.words.rawValue }
+            p(.id(Self.name(path)), .class("\(text.style.rawValue) \(text.color.rawValue)")) { text.words }
                 .attributes(contentsOf: anchored())
         case .image(let image):
             img(

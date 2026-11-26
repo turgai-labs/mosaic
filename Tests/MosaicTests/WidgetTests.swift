@@ -5,11 +5,12 @@ import Testing
 /// A widget that exists can be shown: what's wrong with a piece stops it being made, here or decoded.
 @Suite("A widget, made")
 struct WidgetTests {
-    @Test("a piece that says nothing, or is named by nothing, isn't made; what's made is trimmed")
+    @Test("a button or toggle that says nothing, or a piece named by nothing, isn't made; a text says what it's given")
     func piecesSaySomething() throws {
-        #expect(try Text("  hi ", "  Hi ").words.rawValue == "Hi")
         #expect(try Text("  hi ", "Hi").id.rawValue == "hi")
-        #expect(throws: WidgetProblem.noText) { try Text("hi", " ") }
+        // Any words, none too, as they're given, as SwiftUI's own Text takes them.
+        #expect(try Text("hi", "  Hi ").words == "  Hi ")
+        #expect(try Text("hi", "").words == "")
         #expect(throws: WidgetProblem.noLabel) { try Button("go", "") }
         #expect(throws: WidgetProblem.noLabel) { try Toggle("on", "\n", isOn: true) }
         #expect(throws: WidgetProblem.noID) { try Text(" ", "Hi") }
@@ -125,8 +126,12 @@ struct WidgetTests {
         #expect(throws: (any Error).self) { try JSONDecoder().decode(Widget.self, from: Data(noColumns.utf8)) }
         let twice = String(decoding: data, as: UTF8.self).replacingOccurrences(of: "\"cover\"", with: "\"day\"")
         #expect(throws: (any Error).self) { try JSONDecoder().decode(Widget.self, from: Data(twice.utf8)) }
-        let blank = String(decoding: data, as: UTF8.self).replacingOccurrences(of: "\"Cycle day 3\"", with: "\" \"")
+        let blank = String(decoding: data, as: UTF8.self).replacingOccurrences(
+            of: "\"Daily reminder\"", with: "\" \"")
         #expect(throws: (any Error).self) { try JSONDecoder().decode(Widget.self, from: Data(blank.utf8)) }
+        // A text says what it's given, none too.
+        let quiet = String(decoding: data, as: UTF8.self).replacingOccurrences(of: "\"Cycle day 3\"", with: "\"\"")
+        #expect(try JSONDecoder().decode(Widget.self, from: Data(quiet.utf8)) != widget)
     }
 
     @Test("a piece is found by its path, and a path is written and read back as text")

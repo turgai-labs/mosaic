@@ -182,14 +182,14 @@ public struct Divider: Identifiable, Codable, Equatable, Sendable {
     }
 }
 
-/// Words to read, in a style and colour.
+/// Words to read, in a style and colour: any words, none too, as they're given.
 public struct Text: Identifiable, Codable, Equatable, Sendable {
     public internal(set) var id: PieceID
-    public var words: Words
+    public var words: String
     public var style: TextStyle
     public var color: TextColor
 
-    public init(id: PieceID, words: Words, style: TextStyle = .body, color: TextColor = .primary) {
+    public init(id: PieceID, words: String, style: TextStyle = .body, color: TextColor = .primary) {
         self.id = id
         self.words = words
         self.style = style
@@ -199,14 +199,14 @@ public struct Text: Identifiable, Codable, Equatable, Sendable {
     public init(_ id: String, _ words: String, style: TextStyle = .body, color: TextColor = .primary)
         throws(WidgetProblem)
     {
-        self.init(id: try PieceID(id), words: try Words.of(words, or: .noText), style: style, color: color)
+        self.init(id: try PieceID(id), words: words, style: style, color: color)
     }
 
     public init(id: String? = nil, _ words: String, style: TextStyle = .body, color: TextColor = .primary)
         throws(WidgetProblem)
     {
         self.init(
-            id: try id.map(PieceID.init) ?? PieceID(kind: "text"), words: try Words.of(words, or: .noText),
+            id: try id.map(PieceID.init) ?? PieceID(kind: "text"), words: words,
             style: style, color: color)
     }
 }
